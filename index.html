@@ -2,6 +2,8 @@
 <html lang="it"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>SmartManager</title><meta name="theme-color" content="#6d5efc">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png"><link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
 :root{--bg:#f2f3fb;--c:#fff;--t:#1c1e3a;--m:#71768f;--b:#e6e8f4;--p:#6d5efc;--p2:#a855f7;--sh:0 4px 18px #4b4a9a1a}
 :root[data-th=dark]{--bg:#0e0f1c;--c:#181a2d;--t:#edeefb;--m:#9297b5;--b:#2a2d46;--sh:0 4px 18px #0006}
@@ -40,7 +42,10 @@ nav#bn button{flex:1;background:none;border:0;font-size:11px;color:var(--m);disp
 #dr.o{transform:none}#dr a{display:flex;gap:12px;padding:13px;border-radius:14px;color:var(--t);text-decoration:none}#dr a.on{background:var(--bg);font-weight:700}
 #ov{display:none;position:fixed;inset:0;background:#0007;z-index:19}#ov.o{display:block}
 #md{display:none;position:fixed;inset:0;background:#0008;z-index:30;align-items:flex-end;justify-content:center}#md.o{display:flex}
-#md>div{background:var(--c);width:100%;max-width:640px;border-radius:26px 26px 0 0;padding:18px;max-height:92%;overflow:auto}
+#md>div{background:var(--c);width:100%;max-width:640px;border-radius:26px 26px 0 0;padding:18px;max-height:88vh;display:flex;flex-direction:column}
+#md .fbody{overflow:auto;flex:1;padding-bottom:6px}
+#md .ffoot{display:flex;gap:8px;padding-top:10px;padding-bottom:calc(14px + env(safe-area-inset-bottom,0));background:var(--c)}
+#mst{text-align:center;font-size:13px;color:var(--m);min-height:18px;margin-top:4px}
 #toast{position:fixed;top:calc(10px + env(safe-area-inset-top,0));left:10px;right:10px;z-index:40;display:flex;flex-direction:column;gap:8px}
 #toast div{background:var(--t);color:var(--c);padding:13px;border-radius:16px;box-shadow:0 6px 20px #0006;display:flex;gap:10px;align-items:center;font-size:14px}#toast button{background:var(--p);border:0;color:#fff;border-radius:10px;padding:6px 10px;white-space:nowrap}
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}.cal b{font-size:12px;color:var(--m)}
@@ -84,7 +89,8 @@ li{margin:6px 0}
   <label>Ripeti anche ogni (ore, 0 = mai)</label><input id="s_every" type="number" min="0" step="0.5">
   <div class="row"><button class="btn s" onclick="perm()">Attiva notifiche</button><button class="btn s" onclick="notify({title:'Prova',id:0},'Notifica di test ✔')">Prova</button></div></div>
  <div class="card"><h3>🎙 Preferenze</h3><div class="sw">Risposte vocali<input id="s_voice" type="checkbox"></div><div class="sw">Vibrazione<input id="s_vib" type="checkbox"></div></div>
- <div class="card"><h3>💾 Dati</h3><div class="row"><button class="btn s" onclick="exp()">Esporta</button><button class="btn s" onclick="imp.click()">Importa</button></div><div class="row" style="margin-top:8px"><button class="btn s" onclick="ics(S.tasks)">📆 Tutto in .ics</button><button class="btn s" onclick="S.tasks=S.tasks.filter(t=>!t.done);save();render()">🧹 Pulisci fatte</button></div><input type="file" id="imp" hidden accept=".json"></div></section>
+ <div class="card"><h3>💾 Dati</h3><div class="row"><button class="btn s" onclick="exp()">Esporta</button><button class="btn s" onclick="imp.click()">Importa</button></div><div class="row" style="margin-top:8px"><button class="btn s" onclick="ics(S.tasks)">📆 Tutto in .ics</button><button class="btn s" onclick="S.tasks=S.tasks.filter(t=>!t.done);save();render()">🧹 Pulisci fatte</button></div><input type="file" id="imp" hidden accept=".json"></div>
+ <div class="card"><h3>🔧 Diagnostica dispositivo</h3><div id="diag" style="font-size:14px;line-height:1.7"></div></div></section>
 
 <section id="in" class="v">
  <div class="card" style="text-align:center"><div style="font-size:54px">📋</div><h3 style="font-size:24px;margin:2px">SmartManager</h3><small style="color:var(--m)">Versione 2.0</small>
@@ -96,10 +102,12 @@ li{margin:6px 0}
 <button class="fab" id="plus" onclick="edit()">＋</button><button class="fab" id="mic" onclick="listen()">🎤</button>
 <nav id="bn"><button data-v="hm"><span>🏠</span>Home</button><button data-v="ag"><span>📅</span>Agenda</button><button data-v="cl"><span>🗓</span>Calendario</button><button data-v="as"><span>🤖</span>Assistente</button></nav>
 
-<div id="md"><div><h3 id="mh">Nuova attività</h3>
+<div id="md"><div>
+ <div class="fbody"><h3 id="mh">Nuova attività</h3>
  <input id="f_t" placeholder="Titolo"><div class="row"><select id="f_y"></select><select id="f_p"><option value="bassa">Priorità bassa</option><option value="media" selected>Priorità media</option><option value="alta">Priorità alta</option></select></div>
  <input id="f_d" type="datetime-local"><div class="row"><input id="f_l" placeholder="📍 Luogo o link"><select id="f_r"><option value="">Non ripetere</option><option value="d">Ogni giorno</option><option value="w">Ogni settimana</option><option value="m">Ogni mese</option></select></div>
- <textarea id="f_n" rows="2" placeholder="Note / partecipanti"></textarea><div class="row"><button class="btn s" onclick="md.classList.remove('o')">Annulla</button><button class="btn" onclick="saveF()">Salva</button></div></div></div>
+ <textarea id="f_n" rows="2" placeholder="Note / partecipanti"></textarea></div>
+ <div class="ffoot"><button class="btn s" onclick="md.classList.remove('o')" style="flex:1">Annulla</button><button class="btn" onclick="saveF()" style="flex:1">💾 Salva</button></div></div></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -187,17 +195,47 @@ function handle(txt){const l=txt.toLowerCase().trim();let m;
  const p=parse(txt);if(!p.title)return say('Non ho capito. Prova: «Riunione lunedì alle 9:30».');if(!p.ok)return say('Quando? Indica giorno e ora, es. «domani alle 10».');
  add(p);say(`Fatto! ${T[p.type][0]} «${p.title}» il ${fmt(p.due)}${p.prio=='alta'?' (priorità alta)':''}${p.rep?', ripetuta':''}. Ti avviserò con notifiche progressive.`)}
 function send(){const v=$('ci').value.trim();if(!v)return;$('ci').value='';$('chat').insertAdjacentHTML('beforeend',`<div class="m u">${esc(v)}</div>`);handle(v)}
-let rec;function listen(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;view('as');
- if(!SR)return say("Il riconoscimento vocale non è supportato qui: apri l'app in Chrome o scrivi il comando.");if(rec){try{rec.stop()}catch(e){}return}
- rec=new SR();rec.lang='it-IT';$('mic').classList.add('on');rec.onresult=e=>{const t=e.results[0][0].transcript;$('chat').insertAdjacentHTML('beforeend',`<div class="m u">${esc(t)}</div>`);handle(t)};
- rec.onerror=e=>bot('Microfono non disponibile ('+e.error+'). Controlla i permessi.');rec.onend=()=>{rec=null;$('mic').classList.remove('on')};try{rec.start()}catch(e){rec=null;$('mic').classList.remove('on')}}
+let rec;
+function listen(){
+ view('as');
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR)return say("Il riconoscimento vocale non è disponibile in questo contenitore app. Funziona in Chrome per Android o in un'app generata con PWABuilder. Nel frattempo puoi scrivere il comando qui sotto.");
+ if(rec){try{rec.stop()}catch(e){}return}
+ if(!location.protocol.startsWith('https')&&location.hostname!='localhost')return say('Il microfono richiede una connessione sicura (https). Apri l\'app dall\'indirizzo https:// di GitHub Pages.');
+ const startRec=()=>{
+  rec=new SR();rec.lang='it-IT';rec.interimResults=false;rec.maxAlternatives=1;
+  $('mic').classList.add('on');bot('🎙 In ascolto… parla ora.');
+  let got=0;
+  rec.onresult=e=>{got=1;const t=e.results[0][0].transcript;$('chat').insertAdjacentHTML('beforeend',`<div class="m u">${esc(t)}</div>`);handle(t)};
+  rec.onerror=e=>{const msgs={'not-allowed':'Permesso microfono negato. Attivalo nelle impostazioni Android dell\'app (Permessi → Microfono).','audio-capture':'Nessun microfono rilevato sul dispositivo.','no-speech':'Non ho sentito nulla, riprova.','network':'Serve una connessione internet attiva per il riconoscimento vocale.'};bot('⚠️ '+(msgs[e.error]||('Errore microfono: '+e.error)))};
+  rec.onend=()=>{rec=null;$('mic').classList.remove('on');if(!got)bot('Registrazione terminata senza audio. Tieni premuto vicino al microfono e riprova.')};
+  try{rec.start()}catch(e){rec=null;$('mic').classList.remove('on');bot('Impossibile avviare il microfono: '+e.message)}
+ };
+ if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+  navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{s.getTracks().forEach(t=>t.stop());startRec()}).catch(err=>{bot('⚠️ Permesso microfono negato o non disponibile ('+err.name+'). Controlla i permessi dell\'app nelle impostazioni Android.')});
+ }else startRec();
+}
 
 /* ---- notifiche progressive ---- */
 function toast(t,id){const d=document.createElement('div');d.innerHTML=`<span style="flex:1">${esc(t)}</span>${id?`<button onclick="snz('${id}');this.parentNode.remove()">+1h</button>`:''}`;$('toast').appendChild(d);setTimeout(()=>d.remove(),12000);d.onclick=e=>{if(e.target.tagName!='BUTTON')d.remove()}}
-function perm(){if(!('Notification'in window))return toast('Notifiche non supportate');Notification.requestPermission().then(p=>toast(p=='granted'?'Notifiche attivate ✔':'Notifiche negate'))}
-function notify(t,msg){toast('⏰ '+t.title+' – '+msg,t.id);if(S.set.vib&&navigator.vibrate)navigator.vibrate([250,100,250,100,400]);
- try{if(Notification.permission=='granted'){const o={body:msg,tag:'sm'+t.id,icon:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#6d5efc"/><text x="32" y="44" font-size="34" text-anchor="middle">📋</text></svg>'),requireInteraction:true};
-  if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(r=>r.showNotification('SmartManager: '+t.title,o));else new Notification('SmartManager: '+t.title,o)}}catch(e){}}
+let swReady=null;
+if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js').then(r=>{swReady=r}).catch(()=>{})}
+function perm(){
+ if(!('Notification'in window)){toast('Le notifiche non sono supportate in questo contenitore app. Su Android usa un\'app generata con PWABuilder (TWA), oppure apri il sito in Chrome.');return}
+ if(Notification.permission=='denied'){toast('Notifiche bloccate. Attivale da Impostazioni Android → App → SmartManager → Notifiche.');return}
+ Notification.requestPermission().then(p=>toast(p=='granted'?'Notifiche attivate ✔':'Notifiche negate: potrai attivarle dalle impostazioni del telefono.'))
+}
+function notify(t,msg){
+ toast('⏰ '+t.title+' – '+msg,t.id);
+ if(S.set.vib&&navigator.vibrate)navigator.vibrate([250,100,250,100,400]);
+ if(!('Notification'in window)||Notification.permission!='granted')return;
+ const o={body:msg,tag:'sm'+t.id,icon:'icons/icon-192.png',badge:'icons/icon-192.png',requireInteraction:true,vibrate:[250,100,250]};
+ try{
+  if(swReady)swReady.showNotification('SmartManager: '+t.title,o);
+  else if(navigator.serviceWorker&&navigator.serviceWorker.getRegistration)navigator.serviceWorker.getRegistration().then(r=>r?r.showNotification('SmartManager: '+t.title,o):new Notification('SmartManager: '+t.title,o));
+  else new Notification('SmartManager: '+t.title,o);
+ }catch(e){try{new Notification('SmartManager: '+t.title,o)}catch(e2){}}
+}
 function check(){const n=Date.now();let ch=0;S.tasks.forEach(t=>{if(t.done)return;const min=(D(t.due)-n)/6e4,th=S.set.th,mx=Math.max(...th,0);t.fired=t.fired||[];
  const cr=th.filter(x=>min<=x&&!t.fired.includes(x));
  if(cr.length&&min>-60){t.fired.push(...cr);t.last=n;ch=1;notify(t,min<=0?'È ora! '+fmt(t.due):'Scade '+left(t)+' ('+fmt(t.due)+')')}
@@ -216,6 +254,13 @@ function init(){const s=S.set,r=document.documentElement;s.th=s.th||[0];r.datase
  $('s_dark').value=s.dark;$('s_dark').onchange=e=>{s.dark=e.target.value;save();init()};$('s_every').value=s.every;$('s_every').onchange=e=>{s.every=Math.max(0,+e.target.value||0);save()};
  [['voice','s_voice'],['vib','s_vib']].forEach(([k,i])=>{$(i).checked=!!s[k];$(i).onchange=e=>{s[k]=e.target.checked?1:0;save()}})}
 function thc(m,on){const a=S.set.th.filter(x=>x!=m);if(on)a.push(m);S.set.th=a;save()}
-init();render();bot("Ciao! Sono il tuo assistente SmartManager. Dettami un impegno con il 🎤 o scrivilo qui.");
+function diag(){const ok=b=>b?'✅':'❌';
+ $('diag').innerHTML=[
+  [ok(!!(window.SpeechRecognition||window.webkitSpeechRecognition)),'Microfono / comandi vocali'],
+  [ok('Notification'in window),'Notifiche'],
+  [ok('serviceWorker'in navigator),'Funzionamento come app (PWA)'],
+  [ok(location.protocol=='https:'),'Connessione sicura (https)']
+ ].map(x=>`<div>${x[0]} ${x[1]}</div>`).join('')+'<p style="color:var(--m);font-size:12px;margin-top:8px">Se vedi ❌, il contenitore APK non supporta quella funzione: usa PWABuilder invece di un generico WebView.</p>'}
+init();render();diag();bot("Ciao! Sono il tuo assistente SmartManager. Dettami un impegno con il 🎤 o scrivilo qui.");
 setInterval(check,30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)check()});check();
 </script></body></html>
