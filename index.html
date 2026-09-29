@@ -78,7 +78,7 @@ li{margin:6px 0}
  <h2 id="cd"></h2><div id="cx"></div></section>
 
 <section id="as" class="v"><div class="card"><div id="chat"></div><div class="row" style="margin-top:8px"><input id="ci" style="flex:3" placeholder="Scrivi un comando…" onkeydown="if(event.key=='Enter')send()"><button class="btn" onclick="send()">Invia</button></div></div>
- <div class="card"><small style="color:var(--m)">Prova: «Riunione con il team lunedì alle 9:30 urgente» · «Chiama Marco domani alle 15» · «Dentista il 12/10 alle 17» · «Ricordami di scrivere il report» (l'assistente chiederà quando) · «Cosa ho domani?» · «Riepilogo» · «Completa riunione» · «Elimina dentista». In ogni momento puoi scrivere «annulla» per interrompere.</small></div></section>
+ <div class="card"><small style="color:var(--m)">Ogni frase crea subito l'attività, senza conferme: «Riunione con il team lunedì alle 9:30 urgente» · «Chiama Marco domani alle 15» · «Comprare il pane» (se non dici quando, uso un orario indicativo che puoi correggere con ✏️). Comandi rapidi: «Cosa ho domani?» · «Riepilogo» · «Completa riunione» · «Elimina dentista» · «Annulla ultima».</small></div></section>
 
 <section id="fc" class="v"><div class="card"><h3>🎯 Focus timer</h3><p style="color:var(--m);margin-top:0">Lavora a blocchi con pause: ideale per concentrarti tra un appuntamento e l'altro.</p>
  <div class="big" id="ft">25:00</div><div class="row"><button class="btn" onclick="fgo()" id="fb">▶ Avvia</button><button class="btn s" onclick="fset(25)">25 min</button><button class="btn s" onclick="fset(50)">50 min</button><button class="btn s" onclick="fset(5)">Pausa 5</button></div></div></section>
@@ -184,35 +184,18 @@ function parse(raw){let s=' '+raw.toLowerCase().normalize('NFD').replace(/[\u030
  const K=[['riunion|meeting|call di','riunione'],['chiam|telefon','chiamata'],['scadenz|consegn|entro','scadenza'],['event|festa|cena|compleann|party|team building','evento'],['appuntament|visita|dentista|medico','appuntamento']];let type='appuntamento',fnd=0;K.forEach(([r,k])=>{if(!fnd&&new RegExp(r).test(s)){type=k;fnd=1}});if(!fnd&&/palestra|spesa|famiglia|amici/.test(s))type='personale';
  const prio=/urgente|important|priorit/.test(s)?'alta':'media';
  let title=s.replace(/urgente|importante|alta priorita/g,' ').replace(/ (ricordami di|ricordami|ricorda di|aggiungi|crea|nuovo appuntamento|nuova attivita|promemoria|segna|prendi nota|fissa|di|il|la|per|alla|mattina|pomeriggio|sera)(?= )/g,' ').replace(/\s+/g,' ').trim();
- title=title.charAt(0).toUpperCase()+title.slice(1);return{title,due:d,prio,type,rep,ok:dS||hT}}
+ title=title.charAt(0).toUpperCase()+title.slice(1);return{title,due:d,prio,type,rep,ok:dS||hT,dateGuessed:!dS,timeGuessed:!hT}}
+function smartDefault(p){ // fills missing date/time with a sensible near-future default, never blocks
+ if(!p.ok){const n=new Date();p.due=new Date(n.getTime()+36e5);p.due.setMinutes(p.due.getMinutes()<30?30:0,0,0);if(p.due.getMinutes()==0)p.due.setHours(p.due.getHours()+ (p.due<n?1:0))}
+ else if(p.dateGuessed&&!p.timeGuessed){/* time given, no date -> keep default today at that time already set by parse (today) */}
+ else if(!p.dateGuessed&&p.timeGuessed){p.due.setHours(9,0,0,0)} // date given, no time -> default 9:00
+ return p}
 function bot(t){$('chat').insertAdjacentHTML('beforeend',`<div class="m a">${esc(t)}</div>`);$('chat').scrollTop=1e9}
 function say(t){bot(t);if(S.set.voice&&window.speechSynthesis){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='it-IT';speechSynthesis.speak(u)}catch(e){}}}
 function find(q){q=q.trim();return S.tasks.find(t=>!t.done&&t.title.toLowerCase().includes(q))}
 function brief(){const L=S.tasks.filter(t=>!t.done&&same(D(t.due),new Date())).sort((a,b)=>D(a.due)-D(b.due));view('as');say(L.length?`Oggi hai ${L.length} impegni: `+L.map(t=>`${t.title} alle ${P(D(t.due).getHours())} e ${P(D(t.due).getMinutes())}`).join('; ')+'.':'Oggi non hai impegni. Buona giornata!')}
-let convo=null; // {stage:'when'|'confirm', draft:{...}}
+let lastAdded=null;
 function handle(txt){const l=txt.toLowerCase().trim();let m;
- if(convo){
-  if(/^(annulla|stop|basta|niente)/.test(l)){convo=null;return say('Va bene, ho annullato.')}
-  if(convo.stage=='title-wait'){
-   const t=txt.trim();if(t.length<2)return say('Dimmi almeno qualche parola per il titolo.');
-   convo.draft.title=t.charAt(0).toUpperCase()+t.slice(1);
-   if(!convo.draft.ok){convo.stage='when';return say(`Quando devo ricordarti «${convo.draft.title}»? Dimmi giorno e ora.`)}
-   convo.stage='confirm';const d=convo.draft;
-   return say(`Confermi? ${T[d.type][0]} «${d.title}» il ${fmt(d.due)}${d.prio=='alta'?' (priorità alta)':''}. Rispondi «sì» o «no».`);
-  }
-  if(convo.stage=='when'){
-   const p2=parse(txt);
-   if(!p2.ok)return say('Non ho capito il momento. Dimmi giorno e ora, es. «domani alle 10» o «venerdì alle 15:30».');
-   convo.draft.due=p2.due;if(!convo.draft.rep&&p2.rep)convo.draft.rep=p2.rep;
-   convo.stage='confirm';const d=convo.draft;
-   return say(`Confermi? ${T[d.type][0]} «${d.title}» il ${fmt(d.due)}${d.prio=='alta'?' (priorità alta)':''}${d.rep?', ripetuta':''}. Rispondi «sì» o «no».`);
-  }
-  if(convo.stage=='confirm'){
-   if(/^(s(i|ì)|ok|va bene|confermo|esatto|giusto|perfetto)/.test(l)){add(convo.draft);say(`Fatto! Ho salvato «${convo.draft.title}». Ti avviserò con notifiche progressive.`);convo=null;return}
-   if(/^(no|annulla|cancella|sbagliato)/.test(l)){say('Ok, ho annullato. Ripeti pure il comando quando vuoi.');convo=null;return}
-   return say('Rispondi «sì» per confermare o «no» per annullare.');
-  }
- }
  if(/^(riepilogo|briefing)/.test(l))return brief();
  if(/^(quando|qual e|prossim)/.test(l)){const t=S.tasks.filter(t=>!t.done&&D(t.due)>=new Date()).sort((a,b)=>D(a.due)-D(b.due))[0];return say(t?`Il prossimo è «${t.title}», ${fmt(t.due)} (${left(t)}).`:'Non hai impegni in arrivo.')}
  if(/^(cosa ho|che (impegni|attivit)|agenda|quali)/.test(l)){const b=new Date();b.setHours(0,0,0,0);let e=new Date(b);e.setHours(23,59,59);if(/domani/.test(l)){b.setDate(b.getDate()+1);e.setDate(e.getDate()+1)}else if(/settimana/.test(l))e.setDate(e.getDate()+7);
@@ -220,35 +203,60 @@ function handle(txt){const l=txt.toLowerCase().trim();let m;
  if(m=l.match(/^(?:completa|fatto|ho finito)\s+(.+)/)){const t=find(m[1]);if(t){tog(t.id);return say(`Completata: ${t.title} ✔`)}return say('Non trovo questa attività.')}
  if(m=l.match(/^(?:elimina|cancella|rimuovi)\s+(.+)/)){const t=find(m[1]);if(t){del(t.id);return say(`Eliminata: ${t.title}`)}return say('Non trovo questa attività.')}
  if(m=l.match(/^(?:rimanda|posticipa)\s+(.+)/)){const t=find(m[1]);if(t){snz(t.id);return say(`Rimandata di un'ora: ${t.title}`)}return say('Non trovo questa attività.')}
- const p=parse(txt);
- if(!p.title||p.title.length<2){convo={stage:'title-wait',draft:p};return say('Certo, come si chiama l\'attività?')}
- if(!p.ok){convo={stage:'when',draft:p};return say(`Quando devo ricordarti «${p.title}»? Dimmi giorno e ora.`)}
- convo={stage:'confirm',draft:p};
- say(`Confermi? ${T[p.type][0]} «${p.title}» il ${fmt(p.due)}${p.prio=='alta'?' (priorità alta)':''}${p.rep?', ripetuta':''}. Rispondi «sì» o «no».`)}
+ if(m=l.match(/^(?:annulla|elimina)\s+(?:ultim[oa]|l'ultima)/)&&lastAdded){del(lastAdded.id);say('Annullato.');lastAdded=null;return}
+ // cattura rapida: crea subito, con valori intelligenti se qualcosa manca
+ let p=parse(txt);
+ if(!p.title||p.title.length<2)p.title='Promemoria';
+ p=smartDefault(p);
+ const t=add(p);lastAdded=t;
+ const guess=!p.ok;
+ say(`✅ ${T[p.type][0]} «${p.title}» – ${fmt(p.due)}${guess?' (orario indicativo)':''}`);
+ toastTask(t,guess);
+}
 function send(){const v=$('ci').value.trim();if(!v)return;$('ci').value='';$('chat').insertAdjacentHTML('beforeend',`<div class="m u">${esc(v)}</div>`);handle(v)}
 let rec;
+let micTries=0;
 function listen(){
- view('as');
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!SR)return say("Il riconoscimento vocale non è disponibile in questo contenitore app. Funziona in Chrome per Android o in un'app generata con PWABuilder. Nel frattempo puoi scrivere il comando qui sotto.");
+ if(!SR)return micErr("Il riconoscimento vocale non è disponibile qui. Funziona in Chrome per Android o in un'app generata con PWABuilder.");
  if(rec){try{rec.stop()}catch(e){}return}
- if(!location.protocol.startsWith('https')&&location.hostname!='localhost')return say('Il microfono richiede una connessione sicura (https). Apri l\'app dall\'indirizzo https:// di GitHub Pages.');
+ if(!location.protocol.startsWith('https')&&location.hostname!='localhost')return micErr('Il microfono richiede https. Apri l\'app dall\'indirizzo https:// di GitHub Pages.');
+ micCap('🎙 In ascolto…');micTries=0;
  const startRec=()=>{
-  rec=new SR();rec.lang='it-IT';rec.interimResults=false;rec.maxAlternatives=1;
-  $('mic').classList.add('on');bot('🎙 In ascolto… parla ora.');
-  let got=0;
-  rec.onresult=e=>{got=1;const t=e.results[0][0].transcript;$('chat').insertAdjacentHTML('beforeend',`<div class="m u">${esc(t)}</div>`);handle(t)};
-  rec.onerror=e=>{const msgs={'not-allowed':'Permesso microfono negato. Attivalo nelle impostazioni Android dell\'app (Permessi → Microfono).','audio-capture':'Nessun microfono rilevato sul dispositivo.','no-speech':'Non ho sentito nulla, riprova.','network':'Serve una connessione internet attiva per il riconoscimento vocale.'};bot('⚠️ '+(msgs[e.error]||('Errore microfono: '+e.error)))};
-  rec.onend=()=>{rec=null;$('mic').classList.remove('on');if(!got)bot('Registrazione terminata senza audio. Tieni premuto vicino al microfono e riprova.')};
-  try{rec.start()}catch(e){rec=null;$('mic').classList.remove('on');bot('Impossibile avviare il microfono: '+e.message)}
+  rec=new SR();rec.lang='it-IT';rec.interimResults=true;rec.maxAlternatives=1;rec.continuous=false;
+  $('mic').classList.add('on');
+  let got=0,final='';
+  rec.onresult=e=>{let interim='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal){final+=e.results[i][0].transcript;got=1}else interim+=e.results[i][0].transcript}
+   micCap((final||interim||'…').trim()||'…')};
+  rec.onerror=e=>{
+   if(e.error=='no-speech'&&micTries<1){micTries++;try{rec.start();return}catch(x){}}
+   const msgs={'not-allowed':'Permesso microfono negato. Attivalo nei permessi dell\'app.','audio-capture':'Nessun microfono rilevato.','no-speech':'Non ho sentito nulla. Riprova parlando più vicino al microfono.','network':'Serve internet per riconoscere la voce.'};
+   micCap('⚠️ '+(msgs[e.error]||('Errore: '+e.error)),1);
+  };
+  rec.onend=()=>{rec=null;$('mic').classList.remove('on');
+   if(got&&final.trim()){bot(`🎙 «${esc(final.trim())}»`);handle(final.trim());hideMicCap(900)}
+   else if(!document.getElementById('miccap').classList.contains('err'))hideMicCap(300)
+  };
+  try{rec.start()}catch(e){rec=null;$('mic').classList.remove('on');micCap('Impossibile avviare il microfono.',1)}
  };
  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
-  navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{s.getTracks().forEach(t=>t.stop());startRec()}).catch(err=>{bot('⚠️ Permesso microfono negato o non disponibile ('+err.name+'). Controlla i permessi dell\'app nelle impostazioni Android.')});
+  navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{s.getTracks().forEach(t=>t.stop());startRec()}).catch(err=>micErr('Permesso microfono negato. Controlla i permessi dell\'app nelle impostazioni Android.'));
  }else startRec();
 }
+function micCap(txt,err){let d=document.getElementById('miccap');
+ if(!d){d=document.createElement('div');d.id='miccap';d.style.cssText='position:fixed;left:14px;right:78px;bottom:calc(160px + env(safe-area-inset-bottom,0));background:var(--t);color:var(--c);padding:11px 15px;border-radius:16px;font-size:14px;z-index:12;box-shadow:0 6px 18px #0005;transition:.2s';document.body.appendChild(d)}
+ d.classList.toggle('err',!!err);if(err)d.style.background='#ef4444';else d.style.background='var(--t)';
+ d.textContent=txt;d.style.opacity='1'}
+function hideMicCap(ms){setTimeout(()=>{const d=document.getElementById('miccap');if(d)d.style.opacity='0';setTimeout(()=>{if(d)d.remove()},400)},ms||0)}
+function micErr(msg){micCap('⚠️ '+msg,1);hideMicCap(4500)}
 
 /* ---- notifiche progressive ---- */
 function toast(t,id){const d=document.createElement('div');d.innerHTML=`<span style="flex:1">${esc(t)}</span>${id?`<button onclick="snz('${id}');this.parentNode.remove()">+1h</button>`:''}`;$('toast').appendChild(d);setTimeout(()=>d.remove(),12000);d.onclick=e=>{if(e.target.tagName!='BUTTON')d.remove()}}
+function toastTask(t,guessed){const d=document.createElement('div');
+ d.innerHTML=`<span style="flex:1">✅ ${T[t.type][0]} <b>${esc(t.title)}</b><br><small style="opacity:.85">${fmt(t.due)}${guessed?' · orario indicativo':''}</small></span>
+  <button onclick="del('${t.id}');this.parentNode.remove();toast('Eliminato')">Annulla</button>
+  <button onclick="edit('${t.id}');this.parentNode.remove()">✏️</button>`;
+ $('toast').appendChild(d);setTimeout(()=>{if(d.parentNode)d.remove()},8000)}
 let swReady=null;
 if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js').then(r=>{swReady=r}).catch(()=>{})}
 function perm(){
@@ -293,6 +301,6 @@ function diag(){const ok=b=>b?'✅':'❌';
   [ok('serviceWorker'in navigator),'Funzionamento come app (PWA)'],
   [ok(location.protocol=='https:'),'Connessione sicura (https)']
  ].map(x=>`<div>${x[0]} ${x[1]}</div>`).join('')+'<p style="color:var(--m);font-size:12px;margin-top:8px">Se vedi ❌, il contenitore APK non supporta quella funzione: usa PWABuilder invece di un generico WebView.</p>'}
-init();render();diag();bot("Ciao! Sono il tuo assistente SmartManager. Dettami un impegno con il 🎤 o scrivilo qui.");
+init();render();diag();bot("Ciao! Premi 🎤 e detta un impegno: lo aggiungo subito. Puoi anche scrivermelo qui.");
 setInterval(check,30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)check()});check();
 </script></body></html>
